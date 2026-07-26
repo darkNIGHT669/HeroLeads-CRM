@@ -1,0 +1,58 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  role         String      // "ADMIN" | "MEMBER"
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  leads        Lead[]      @relation("AssignedLeads")
+  notes        LeadNote[]  @relation("UserNotes")
+  activities   Activity[]  @relation("UserActivities")
+}
+
+model Lead {
+  id           String         @id @default(uuid())
+  title        String
+  company      String
+  contactEmail String
+  phone        String
+  status       String         // "NEW" | "CONTACTED" | "QUALIFIED" | "LOST" | "WON"
+  assignedToId String?
+  assignedTo   User?          @relation("AssignedLeads", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  notes        LeadNote[]
+  activities   Activity[]
+}
+
+model LeadNote {
+  id        String   @id @default(uuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("UserNotes", fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model Activity {
+  id           String   @id @default(uuid())
+  leadId       String
+  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actorId      String?
+  actor        User?    @relation("UserActivities", fields: [actorId], references: [id], onDelete: Cascade)
+  actionType   String   // "STATUS_CHANGE" | "ASSIGNED" | "NOTE_ADDED" | "LEAD_CREATED" | "LEAD_DELETED"
+  metadataJson String   // JSON string of before/after details
+  createdAt    DateTime @default(now())
+}
