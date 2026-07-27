@@ -157,6 +157,19 @@ export default function LoginPage() {
           </div>
         </form>
       </main>
+
+      {/* Verification Credit Footer */}
+      <footer className="mt-8 text-center text-[10px] text-slate-500 font-medium">
+        Built for{" "}
+        <a
+          href="https://digitalheroesco.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-slate-400 hover:text-slate-200 underline transition-colors"
+        >
+          Digital Heroes Training Task
+        </a>
+      </footer>
     </div>
   );
 }
