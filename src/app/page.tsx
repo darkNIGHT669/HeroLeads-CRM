@@ -207,7 +207,9 @@ export default function LandingPage() {
                         type="text"
                         name="phone"
                         required
-                        placeholder="e.g. +1 (555) 000-0000"
+                        placeholder="e.g. +919876543210"
+                        pattern="^\+91\d{10}$"
+                        title="Phone number must start with +91 followed by exactly 10 digits"
                         value={formData.phone}
                         onChange={handleChange}
                         className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-lg py-2 pl-10 pr-4 text-sm text-slate-200 placeholder:text-slate-600 outline-none transition-colors"

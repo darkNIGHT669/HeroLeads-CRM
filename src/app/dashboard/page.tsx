@@ -154,21 +154,19 @@ export default function Dashboard() {
   const fetchStats = useCallback(async () => {
     if (!user) return;
     try {
-      // Fetch full count details (we query page=1, limit=1000 temporarily to compile accurate dashboard stats card sums)
-      const response = await fetch(`/api/v1/leads?limit=1000`);
+      const response = await fetch("/api/v1/stats");
       if (response.ok) {
         const data = await response.json();
-        const allLeads = data.leads as LeadDetail[];
         setStats({
-          total: allLeads.length,
-          new: allLeads.filter((l) => l.status === "NEW").length,
-          contacted: allLeads.filter((l) => l.status === "CONTACTED").length,
-          qualified: allLeads.filter((l) => l.status === "QUALIFIED").length,
-          won: allLeads.filter((l) => l.status === "WON").length,
+          total: data.total,
+          new: data.new,
+          contacted: data.contacted,
+          qualified: data.qualified,
+          won: data.won,
         });
       }
     } catch (e) {
-      console.error("Error compilation stats:", e);
+      console.error("Error fetching stats:", e);
     }
   }, [user]);
 
@@ -211,34 +209,69 @@ export default function Dashboard() {
     }
   }, [selectedLeadId, fetchLeadDetail]);
 
-  // Handle Note Submit
+  // Handle Note Submit (Optimistic UI Update)
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNoteContent.trim() || !selectedLeadId) return;
+    if (!newNoteContent.trim() || !selectedLeadId || !user) return;
+
+    const contentToSubmit = newNoteContent;
+    setNewNoteContent("");
     setSubmittingNote(true);
+
+    const tempNote: LeadNote = {
+      id: "temp-" + Date.now(),
+      content: contentToSubmit,
+      createdAt: new Date().toISOString(),
+      author: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+
+    const previousNotes = selectedLead ? [...selectedLead.notes] : [];
+    // Optimistically prepend note
+    setSelectedLead((prev) => (prev ? { ...prev, notes: [tempNote, ...prev.notes] } : null));
 
     try {
       const response = await fetch(`/api/v1/leads/${selectedLeadId}/notes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newNoteContent }),
+        body: JSON.stringify({ content: contentToSubmit }),
       });
 
       if (response.ok) {
-        setNewNoteContent("");
-        // Reload details to capture new note and activity log
+        // Background reload to fetch official note ID and activity log
         await fetchLeadDetail(selectedLeadId);
         fetchLeads();
+      } else {
+        // Rollback
+        setSelectedLead((prev) => (prev ? { ...prev, notes: previousNotes } : null));
+        const data = await response.json();
+        alert(`Failed to add note: ${data.error || "Unknown error"}`);
       }
     } catch (e) {
+      setSelectedLead((prev) => (prev ? { ...prev, notes: previousNotes } : null));
       console.error("Error adding note:", e);
     } finally {
       setSubmittingNote(false);
     }
   };
 
-  // Handle Status Update (Client + Server Action)
+  // Handle Status Update (Optimistic UI Update)
   const handleStatusChange = async (leadId: string, newStatus: string) => {
+    const previousLeads = [...leads];
+    const previousSelectedLead = selectedLead ? { ...selectedLead } : null;
+
+    // Optimistically update
+    setLeads((prev) =>
+      prev.map((l) => (l.id === leadId ? { ...l, status: newStatus as any } : l))
+    );
+    if (selectedLeadId === leadId) {
+      setSelectedLead((prev) => (prev ? { ...prev, status: newStatus as any } : null));
+    }
+
     try {
       const response = await fetch(`/api/v1/leads/${leadId}`, {
         method: "PATCH",
@@ -252,14 +285,43 @@ export default function Dashboard() {
         if (selectedLeadId === leadId) {
           fetchLeadDetail(leadId);
         }
+      } else {
+        // Rollback
+        setLeads(previousLeads);
+        if (selectedLeadId === leadId) {
+          setSelectedLead(previousSelectedLead);
+        }
+        const data = await response.json();
+        alert(`Failed to update status: ${data.error || "Unknown error"}`);
       }
     } catch (e) {
+      setLeads(previousLeads);
+      if (selectedLeadId === leadId) {
+        setSelectedLead(previousSelectedLead);
+      }
       console.error("Error updating status:", e);
     }
   };
 
-  // Handle Assignee Update (Admin Only)
+  // Handle Assignee Update (Optimistic UI Update)
   const handleAssigneeChange = async (leadId: string, assigneeId: string | null) => {
+    const previousLeads = [...leads];
+    const previousSelectedLead = selectedLead ? { ...selectedLead } : null;
+
+    const assignee = usersList.find((u) => u.id === assigneeId) || null;
+
+    // Optimistically update
+    setLeads((prev) =>
+      prev.map((l) =>
+        l.id === leadId ? { ...l, assignedToId: assigneeId, assignedTo: assignee } : l
+      )
+    );
+    if (selectedLeadId === leadId) {
+      setSelectedLead((prev) =>
+        prev ? { ...prev, assignedToId: assigneeId, assignedTo: assignee } : null
+      );
+    }
+
     try {
       const response = await fetch(`/api/v1/leads/${leadId}`, {
         method: "PATCH",
@@ -272,8 +334,20 @@ export default function Dashboard() {
         if (selectedLeadId === leadId) {
           fetchLeadDetail(leadId);
         }
+      } else {
+        // Rollback
+        setLeads(previousLeads);
+        if (selectedLeadId === leadId) {
+          setSelectedLead(previousSelectedLead);
+        }
+        const data = await response.json();
+        alert(`Failed to assign lead: ${data.error || "Unknown error"}`);
       }
     } catch (e) {
+      setLeads(previousLeads);
+      if (selectedLeadId === leadId) {
+        setSelectedLead(previousSelectedLead);
+      }
       console.error("Error assigning lead:", e);
     }
   };
@@ -924,7 +998,9 @@ export default function Dashboard() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. +1-555-1234"
+                  placeholder="e.g. +919876543210"
+                  pattern="^\+91\d{10}$"
+                  title="Phone number must start with +91 followed by exactly 10 digits"
                   value={createFormData.phone}
                   onChange={(e) => setCreateFormData({ ...createFormData, phone: e.target.value })}
                   className="bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-lg py-2 px-3 text-xs text-slate-300 outline-none"

@@ -7,7 +7,7 @@ const createLeadSchema = z.object({
   title: z.string().min(2, "Title is too short"),
   company: z.string().min(2, "Company name is too short"),
   contactEmail: z.string().email("Invalid contact email"),
-  phone: z.string().min(5, "Invalid phone number"),
+  phone: z.string().regex(/^\+91\d{10}$/, "Phone number must be +91 followed by exactly 10 digits"),
 });
 
 // GET: Retrieve a list of leads (authenticated, paginated, filtered, searched)

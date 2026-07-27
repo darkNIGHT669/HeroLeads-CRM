@@ -59,7 +59,7 @@ describe("CRM Leads and RBAC Integration Tests", () => {
         title: "Test Lead Title",
         company: "Test Company Inc.",
         contactEmail: "contact@testcompany.com",
-        phone: "555-123-4567",
+        phone: "+919876543210",
         status: "NEW",
         assignedToId: testMember.id, // assigned to member 1
       },
@@ -166,7 +166,7 @@ describe("CRM Leads and RBAC Integration Tests", () => {
           title: "Temporary",
           company: "Test Company Inc.",
           contactEmail: "temp@test.com",
-          phone: "123",
+          phone: "+919876543212",
           status: "NEW",
         },
       });
@@ -190,7 +190,7 @@ describe("CRM Leads and RBAC Integration Tests", () => {
         title: "Lifecycle Integration Test",
         company: "Lifecycle Corp",
         contactEmail: "inquiry@lifecycle.com",
-        phone: "555-987-6543",
+        phone: "+919876543211",
       };
 
       const captureReq = new Request("http://localhost/api/v1/leads", {

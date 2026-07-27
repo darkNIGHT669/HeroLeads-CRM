@@ -7,7 +7,7 @@ const updateLeadSchema = z.object({
   title: z.string().optional(),
   company: z.string().optional(),
   contactEmail: z.string().email("Invalid email").optional(),
-  phone: z.string().optional(),
+  phone: z.string().regex(/^\+91\d{10}$/, "Phone number must be +91 followed by exactly 10 digits").optional(),
   status: z.enum(["NEW", "CONTACTED", "QUALIFIED", "LOST", "WON"]).optional(),
   assignedToId: z.string().nullable().optional(),
 });
