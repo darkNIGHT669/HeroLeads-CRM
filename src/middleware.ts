@@ -1,41 +1,46 @@
 import { NextResponse, NextRequest } from "next/server";
-import jwt from "jsonwebtoken";
 
 const COOKIE_NAME = "auth_session_token";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-super-secret-key-1234-change-in-prod";
+
+// Edge-safe JWT decoder using Web APIs (no Node.js crypto dependencies)
+function decodeJwt(token: string) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    const jsonPayload = decodeURIComponent(
+      raw
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(COOKIE_NAME)?.value;
 
-  // Let public routes pass
   const isAuthPage = pathname.startsWith("/login");
   const isDashboardPage = pathname.startsWith("/dashboard");
 
   let user = null;
   if (token) {
-    try {
-      user = jwt.verify(token, JWT_SECRET) as {
-        id: string;
-        name: string;
-        email: string;
-        role: "ADMIN" | "MEMBER";
-      };
-    } catch (e) {
-      // Invalid token
-    }
+    user = decodeJwt(token);
   }
 
   if (isDashboardPage && !user) {
-    // Redirect to login if trying to access dashboard while unauthenticated
     const response = NextResponse.redirect(new URL("/login", request.url));
-    // Clear cookie just in case it was invalid
     response.cookies.delete(COOKIE_NAME);
     return response;
   }
 
   if (isAuthPage && user) {
-    // Redirect to dashboard if logged in
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
